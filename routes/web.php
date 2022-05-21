@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -16,3 +17,13 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', function () {
     return view('welcome');
 });
+
+//Auth::routes();
+
+Route::get('/events', [HomeController::class, 'index'])->name('events');
+Route::get('/events/data', [HomeController::class, 'data'])->name('events.data');
+Route::get('/events/{id}', [HomeController::class, 'show'])->name('events.edit');
+Route::get('/create', [HomeController::class, 'create'])->name('create');
+Route::post('/events/store', [HomeController::class, 'store'])->name('events.store');
+Route::post('/events/{id}/edit', [HomeController::class, 'update'])->name('events.update');
+Route::delete('/events/{id}', [HomeController::class, 'destroy'])->name('events.destroy');
