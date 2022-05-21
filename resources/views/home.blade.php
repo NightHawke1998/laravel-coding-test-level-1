@@ -11,6 +11,11 @@
                     <!--begin::Button-->
                     <a href="{{ route('create') }}" class="btn btn-primary mb-3">Add Event</a>
                     <!--end::Button-->
+
+                     <!--begin::Button-->
+                     <a href="{{ route('externalApi') }}" class="btn btn-warning mb-3">Cat Facts</a>
+                    <!--end::Button-->
+
                     @if (Session::has('success'))
                     <div class="alert alert-success" role="alert">
                         {{ Session::get('success') }}

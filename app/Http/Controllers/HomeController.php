@@ -3,11 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\EventRequest;
+use App\Mail\EventCreate;
 use App\Models\Event;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Yajra\DataTables\Html\Builder;
 use DataTables;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Redis;
 
 class HomeController extends Controller
 {
@@ -45,7 +49,7 @@ class HomeController extends Controller
                 'footer'         => '',
             ]
         ])
-        ->ajax(route('events.data'));
+            ->ajax(route('events.data'));
 
         return view('home', compact('html'));
     }
@@ -53,18 +57,18 @@ class HomeController extends Controller
     public function data()
     {
         return DataTables::of(Event::query())
-        ->addColumn('action', function ($event) {
-            $html = "";
-            $html .= '<a href="'.route('events.edit' , $event).'" class="btn btn-primary btn-sm"><i class="fas fa-pencil-alt"></i></a>';
-            $html .= "<form style='display:inline;' action='" . route('events.destroy', $event) . "' method='post'>";
-            $html .= csrf_field();
-            $html .= '<input type="hidden" name="_method" value="delete">';
-            $html .= '<button class="btn btn-danger btn-sm" type="submit"><i class="fas fa-trash-alt"></i></button>';
-            $html .= "</form>";
-            return $html;
-        })
-        ->rawColumns(['action'])
-        ->make(true);
+            ->addColumn('action', function ($event) {
+                $html = "";
+                $html .= '<a href="' . route('events.edit', $event) . '" class="btn btn-primary btn-sm"><i class="fas fa-pencil-alt"></i></a>';
+                $html .= "<form style='display:inline;' action='" . route('events.destroy', $event) . "' method='post'>";
+                $html .= csrf_field();
+                $html .= '<input type="hidden" name="_method" value="delete">';
+                $html .= '<button class="btn btn-danger btn-sm" type="submit"><i class="fas fa-trash-alt"></i></button>';
+                $html .= "</form>";
+                return $html;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
     }
 
     public function create()
@@ -79,19 +83,33 @@ class HomeController extends Controller
             'startAt' => 'required',
             'endAt' => 'required'
         ]);
-        
-        Event::create([
+
+        $event = Event::create([
             'name' => $request->name,
             'startAt' => Carbon::parse($request->startAt)->format('Y-m-d H:i:s'),
             'endAt' => Carbon::parse($request->endAt)->format('Y-m-d H:i:s')
         ]);
+
+        Mail::to(auth()->user()->email)->send(new EventCreate($event));
 
         return redirect()->route('events')->with('success', 'Add success!');
     }
 
     public function show($id)
     {
-        $event = Event::findOrFail($id);
+        // Redis cache
+        $cachedEvent = Redis::get('event_' . $id);
+
+        if (isset($cachedEvent)) {
+
+            $event = json_decode($cachedEvent, FALSE);
+
+        } else {
+
+            $event = Event::findOrFail($id);
+
+            Redis::set('event_' . $id, $event);
+        }
 
         return view('events.show', compact('event'));
     }
@@ -107,7 +125,7 @@ class HomeController extends Controller
         $event = Event::findOrFail($id);
         $startAt = Carbon::parse($request->startAt)->format('Y-m-d H:i:s');
         $endAt = Carbon::parse($request->endAt)->format('Y-m-d H:i:s');
-        
+
         $event->update([
             'name' => $request->name,
             'startAt' => $startAt,
@@ -123,6 +141,14 @@ class HomeController extends Controller
         $event->delete();
 
         return redirect()->back()->with('success', 'Delete success!');
+    }
 
+    public function externalApi()
+    {
+        $response = Http::get('https://catfact.ninja/fact');
+
+        $data = $response->json();
+
+        return view('data', compact('data'));
     }
 }
